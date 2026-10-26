@@ -1,0 +1,52 @@
+<!doctype html>
+<!-- SPDX-License-Identifier: AGPL-3.0-only -->
+<!--
+  Homebase Google sign-in relay.
+
+  Google only returns sign-ins to https websites or "localhost", never to a
+  home-network address like http://192.168.1.20:8420. Host this one static page
+  on any https site you control (GitHub Pages works) and add its address as an
+  authorized redirect URI in your Google OAuth client. It forwards the phone's
+  browser back to the Homebase screen on your Wi-Fi.
+
+  It never sees tokens. The sign-in code it passes along is useless without the
+  client secret and the one-time PKCE key that stay on the Homebase device.
+  It only forwards to home-network addresses (no open redirects).
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<title>Returning to Homebase</title>
+<style>
+  body { font: 18px/1.5 system-ui, sans-serif; margin: 0; padding: 2rem 1.25rem; background: #eaf0ee; color: #1f2d2c; }
+  main { max-width: 32rem; margin: 0 auto; }
+  .err { color: #b3261e; font-weight: 600; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Returning to Homebase…</h1>
+  <p id="msg">If nothing happens, make sure this phone is on the same Wi-Fi as the Homebase screen.</p>
+</main>
+<script>
+(function () {
+  var msg = document.getElementById('msg');
+  function fail(text) { msg.textContent = text; msg.className = 'err'; }
+  var params = new URLSearchParams(location.search);
+  var state = params.get('state') || '';
+  var dot = state.indexOf('.');
+  if (dot < 1) return fail('This link is missing its return address. Start again from the Homebase screen.');
+  var origin;
+  try {
+    var b64 = state.slice(dot + 1).replace(/-/g, '+').replace(/_/g, '/');
+    origin = atob(b64 + '==='.slice((b64.length + 3) % 4));
+  } catch (e) { return fail('This link is damaged. Start again from the Homebase screen.'); }
+  var home = /^https?:\/\/(localhost|127\.0\.0\.1|10\.\d+\.\d+\.\d+|192\.168\.\d+\.\d+|172\.(1[6-9]|2\d|3[01])\.\d+\.\d+|[a-z0-9-]+\.local|[a-z0-9-]+\.[a-z0-9-]+\.ts\.net)(:\d{1,5})?$/i;
+  if (!home.test(origin)) return fail('This link points outside your home network, so it was stopped.');
+  location.replace(origin + '/api/m/calendar/google/callback' + location.search);
+})();
+</script>
+</body>
+</html>
